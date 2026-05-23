@@ -1,5 +1,9 @@
-// All endpoints are proxied through Vite to FastAPI on :8000 during dev
-// (see vite.config.js). In production, both are served from the same origin.
+// In dev, `VITE_API_BASE` is unset and we use relative paths (Vite proxy
+// in vite.config.js forwards them to FastAPI on :8000).
+// In prod, set VITE_API_BASE to the backend URL, e.g.
+//   VITE_API_BASE=https://rag-backend.up.railway.app
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+const url = (path) => `${API_BASE}${path}`
 
 async function _failPayload(res) {
   try {
@@ -19,20 +23,20 @@ export async function uploadFile(file, sessionId) {
   const fd = new FormData()
   fd.append('file', file)
   if (sessionId) fd.append('session_id', sessionId)
-  const res = await fetch('/upload', { method: 'POST', body: fd })
+  const res = await fetch(url('/upload'), { method: 'POST', body: fd })
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
 export async function listSessionDocuments(sessionId) {
-  const res = await fetch(`/sessions/${sessionId}/documents`)
+  const res = await fetch(url(`/sessions/${sessionId}/documents`))
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
 export async function deleteSessionDocument(sessionId, documentId) {
   const res = await fetch(
-    `/sessions/${sessionId}/documents/${documentId}`,
+    url(`/sessions/${sessionId}/documents/${documentId}`),
     { method: 'DELETE' },
   )
   if (!res.ok) throw new Error(await _failPayload(res))
@@ -40,19 +44,19 @@ export async function deleteSessionDocument(sessionId, documentId) {
 }
 
 export async function listSessions() {
-  const res = await fetch('/sessions')
+  const res = await fetch(url('/sessions'))
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
 export async function getHistory(sessionId) {
-  const res = await fetch(`/history/${sessionId}`)
+  const res = await fetch(url(`/history/${sessionId}`))
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
 export async function clearSession(sessionId) {
-  const res = await fetch(`/session/${sessionId}`, { method: 'DELETE' })
+  const res = await fetch(url(`/session/${sessionId}`), { method: 'DELETE' })
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
@@ -71,7 +75,7 @@ export async function clearSession(sessionId) {
  *   - "error"    -> content is a human-readable error
  */
 export async function sendMessage(message, sessionId, onEvent) {
-  const res = await fetch('/chat', {
+  const res = await fetch(url('/chat'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, session_id: sessionId ?? null }),

@@ -20,4 +20,6 @@ RUN mkdir -p /app/uploads /app/chroma_db
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT is interpolated (Railway / Render / Fly all set $PORT).
+# Falls back to 8000 for local docker / docker-compose.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
