@@ -1,0 +1,35 @@
+# RAG Chatbot — two services (backend + frontend).
+# MongoDB Atlas runs in the cloud (set MONGODB_URI in backend/.env).
+# ChromaDB persists to a host-mounted volume.
+
+services:
+  backend:
+    build: ./backend
+    container_name: rag-backend
+    env_file:
+      - ./backend/.env
+    # Containers reach each other by service name, but CORS allows the
+    # frontend nginx container by its mapped host port too.
+    environment:
+      - ALLOWED_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+    volumes:
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    container_name: rag-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
