@@ -43,6 +43,21 @@ class ChatHistoryStore(ABC):
         ...
 
     @abstractmethod
+    async def attach_document(self, session_id: str, document_id: str) -> None:
+        """Add `document_id` to this session's docs (idempotent)."""
+        ...
+
+    @abstractmethod
+    async def detach_document(self, session_id: str, document_id: str) -> None:
+        """Remove `document_id` from this session's docs."""
+        ...
+
+    @abstractmethod
+    async def get_document_ids(self, session_id: str) -> list[str]:
+        """Documents attached to this session."""
+        ...
+
+    @abstractmethod
     async def ping(self) -> bool:
         """Liveness check used by /health."""
         ...
@@ -144,6 +159,34 @@ class MongoChatHistoryStore(ChatHistoryStore):
                 "updated_at": d.get("updated_at"),
             })
         return out
+
+    async def attach_document(self, session_id: str, document_id: str) -> None:
+        now = datetime.now(timezone.utc)
+        await self._coll.update_one(
+            {"_id": session_id},
+            {
+                "$addToSet": {"document_ids": document_id},  # idempotent insert
+                "$set": {"updated_at": now},
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+
+    async def detach_document(self, session_id: str, document_id: str) -> None:
+        await self._coll.update_one(
+            {"_id": session_id},
+            {
+                "$pull": {"document_ids": document_id},
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+            },
+        )
+
+    async def get_document_ids(self, session_id: str) -> list[str]:
+        doc = await self._coll.find_one(
+            {"_id": session_id},
+            projection={"document_ids": 1},
+        )
+        return list(doc.get("document_ids") or []) if doc else []
 
     async def ping(self) -> bool:
         try:

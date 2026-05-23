@@ -10,22 +10,31 @@ async function _failPayload(res) {
   }
 }
 
-export async function uploadFile(file) {
+/**
+ * Upload a document to a chat session.
+ * If `sessionId` is null/undefined, the backend creates a new session
+ * and returns its id in `response.session_id`.
+ */
+export async function uploadFile(file, sessionId) {
   const fd = new FormData()
   fd.append('file', file)
+  if (sessionId) fd.append('session_id', sessionId)
   const res = await fetch('/upload', { method: 'POST', body: fd })
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
-export async function listDocuments() {
-  const res = await fetch('/documents')
+export async function listSessionDocuments(sessionId) {
+  const res = await fetch(`/sessions/${sessionId}/documents`)
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }
 
-export async function deleteDocument(documentId) {
-  const res = await fetch(`/documents/${documentId}`, { method: 'DELETE' })
+export async function deleteSessionDocument(sessionId, documentId) {
+  const res = await fetch(
+    `/sessions/${sessionId}/documents/${documentId}`,
+    { method: 'DELETE' },
+  )
   if (!res.ok) throw new Error(await _failPayload(res))
   return res.json()
 }

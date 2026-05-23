@@ -99,14 +99,32 @@ class RAGPipeline:
 
     # ---- public entry points ----
 
+    def _where_for_docs(self, document_ids: list[str] | None) -> dict | None:
+        """Chroma `where` clause that scopes retrieval to a session's documents.
+
+        Chroma quirk: `$in` requires >=2 values; a single value must be a plain equality.
+        Returns None when no filter should be applied (which means 'no docs in this chat'
+        — callers should short-circuit before calling query, or accept zero hits).
+        """
+        if not document_ids:
+            return None
+        if len(document_ids) == 1:
+            return {"document_id": document_ids[0]}
+        return {"document_id": {"$in": document_ids}}
+
     async def answer(
         self,
         message: str,
         history: list[Message],
+        document_ids: list[str] | None = None,
     ) -> tuple[str, list[Source]]:
         """Non-streaming. Useful for tests / debugging."""
         retrieval_query = self._build_retrieval_query(history, message)
-        retrieved = self.vs.query(retrieval_query, k=self.settings.TOP_K)
+        where = self._where_for_docs(document_ids)
+        retrieved = (
+            self.vs.query(retrieval_query, k=self.settings.TOP_K, where=where)
+            if document_ids else []
+        )
         msgs = self._build_messages(history, retrieved, message)
         answer = await self.llm.generate(msgs)
         return answer, self._build_sources(retrieved)
@@ -115,13 +133,18 @@ class RAGPipeline:
         self,
         message: str,
         history: list[Message],
+        document_ids: list[str] | None = None,
     ) -> AsyncIterator[dict]:
         """Streaming. Yields dicts shaped like StreamChunk for cheap serialization.
 
         Emits: token* -> sources -> done
         """
         retrieval_query = self._build_retrieval_query(history, message)
-        retrieved = self.vs.query(retrieval_query, k=self.settings.TOP_K)
+        where = self._where_for_docs(document_ids)
+        retrieved = (
+            self.vs.query(retrieval_query, k=self.settings.TOP_K, where=where)
+            if document_ids else []
+        )
         msgs = self._build_messages(history, retrieved, message)
 
         async for token in self.llm.stream(msgs):

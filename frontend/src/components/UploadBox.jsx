@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { uploadFile } from '../services/api'
 
-export default function UploadBox({ onUploaded }) {
+export default function UploadBox({ sessionId, onUploaded }) {
   const inputRef = useRef(null)
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -12,7 +12,7 @@ export default function UploadBox({ onUploaded }) {
     setBusy(true)
     try {
       for (const file of files) {
-        const result = await uploadFile(file)
+        const result = await uploadFile(file, sessionId)
         onUploaded?.(result)
       }
     } catch (e) {

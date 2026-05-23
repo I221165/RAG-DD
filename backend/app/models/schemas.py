@@ -27,6 +27,7 @@ class UploadResponse(BaseModel):
     filename: str
     num_chunks: int
     uploaded_at: datetime
+    session_id: str
 
 
 class DocumentInfo(BaseModel):

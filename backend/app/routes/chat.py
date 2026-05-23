@@ -48,14 +48,18 @@ async def chat(req: ChatRequest):
         if is_new_session:
             yield (json.dumps({"type": "session", "content": session_id}) + "\n").encode()
 
-        # Load existing history; we persist the new turns AFTER streaming completes
-        # so a mid-stream failure doesn't leave a half-recorded conversation.
+        # Load history + this session's attached documents.
+        # We persist new turns AFTER the stream completes so a mid-stream
+        # failure doesn't leave a half-recorded conversation.
         history = await history_store.get(session_id)
+        document_ids = await history_store.get_document_ids(session_id)
 
         accumulated_answer = ""
         accumulated_sources: list[Source] = []
         try:
-            async for event in pipeline.stream_answer(req.message, history):
+            async for event in pipeline.stream_answer(
+                req.message, history, document_ids=document_ids
+            ):
                 if event["type"] == "token":
                     accumulated_answer += event["content"]
                 elif event["type"] == "sources":

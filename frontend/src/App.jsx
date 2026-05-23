@@ -4,33 +4,38 @@ import ChatBox from './components/ChatBox'
 import {
   clearSession,
   getHistory,
-  listDocuments,
+  listSessionDocuments,
   listSessions,
 } from './services/api'
 
 export default function App() {
-  const [documents, setDocuments] = useState([])
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [documents, setDocuments] = useState([])
   const [streaming, setStreaming] = useState(false)
 
-  async function refreshDocuments() {
-    try { setDocuments(await listDocuments()) } catch (e) { console.error(e) }
-  }
   async function refreshSessions() {
     try { setSessions(await listSessions()) } catch (e) { console.error(e) }
   }
 
-  useEffect(() => {
-    refreshDocuments()
-    refreshSessions()
-  }, [])
+  async function refreshDocuments(sid = activeSessionId) {
+    if (!sid) { setDocuments([]); return }
+    try { setDocuments(await listSessionDocuments(sid)) }
+    catch (e) { console.error(e); setDocuments([]) }
+  }
+
+  // initial load: only the sessions list (docs come once a chat is selected)
+  useEffect(() => { refreshSessions() }, [])
+
+  // when chat switches, reload its documents
+  useEffect(() => { refreshDocuments(activeSessionId) }, [activeSessionId])
 
   function handleNewChat() {
     if (streaming) return
     setActiveSessionId(null)
     setMessages([])
+    setDocuments([])
   }
 
   async function handleSelectChat(id) {
@@ -59,10 +64,24 @@ export default function App() {
       if (id === activeSessionId) {
         setActiveSessionId(null)
         setMessages([])
+        setDocuments([])
       }
       refreshSessions()
     } catch (e) {
       alert(e.message)
+    }
+  }
+
+  // Called by UploadBox after a successful upload. Backend returns the
+  // session_id used (creating one if we had none). Adopt it as the active
+  // chat so the rest of the UI lines up.
+  async function handleUploaded(result) {
+    if (!activeSessionId && result.session_id) {
+      setActiveSessionId(result.session_id)
+      refreshSessions()
+      // documents will refresh via the activeSessionId useEffect
+    } else {
+      refreshDocuments(activeSessionId)
     }
   }
 
@@ -73,8 +92,8 @@ export default function App() {
         sessions={sessions}
         activeSessionId={activeSessionId}
         streaming={streaming}
-        onUploaded={refreshDocuments}
-        onDeletedDocument={refreshDocuments}
+        onUploaded={handleUploaded}
+        onDeletedDocument={() => refreshDocuments(activeSessionId)}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}

@@ -1,4 +1,4 @@
-import { deleteDocument } from '../services/api'
+import { deleteSessionDocument } from '../services/api'
 import UploadBox from './UploadBox'
 
 export default function Sidebar({
@@ -13,9 +13,10 @@ export default function Sidebar({
   onDeleteChat,
 }) {
   async function handleDeleteDoc(docId) {
-    if (!confirm('Delete this document and its embeddings?')) return
+    if (!activeSessionId) return
+    if (!confirm('Remove this document from this chat?')) return
     try {
-      await deleteDocument(docId)
+      await deleteSessionDocument(activeSessionId, docId)
       onDeletedDocument?.(docId)
     } catch (e) {
       alert(e.message)
@@ -88,17 +89,24 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* --- Documents section --- */}
-      <div className="border-t border-slate-200 p-4 space-y-3 max-h-[40%] flex flex-col min-h-0">
-        <UploadBox onUploaded={onUploaded} />
+      {/* --- Documents in current chat --- */}
+      <div className="border-t border-slate-200 p-4 space-y-3 max-h-[45%] flex flex-col min-h-0">
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          {activeSessionId ? 'Documents in this chat' : 'Documents'}
+        </div>
+
+        <UploadBox sessionId={activeSessionId} onUploaded={onUploaded} />
 
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">
-            Documents ({documents.length})
-          </div>
           <div className="flex-1 overflow-y-auto space-y-1">
-            {documents.length === 0 ? (
-              <div className="text-xs text-slate-400 italic">No documents yet</div>
+            {!activeSessionId ? (
+              <div className="text-xs text-slate-400 italic">
+                Upload a file to start a new chat, or pick an existing one.
+              </div>
+            ) : documents.length === 0 ? (
+              <div className="text-xs text-slate-400 italic">
+                No documents in this chat yet.
+              </div>
             ) : (
               documents.map((d) => (
                 <div
@@ -112,8 +120,8 @@ export default function Sidebar({
                   <button
                     onClick={() => handleDeleteDoc(d.document_id)}
                     className="text-slate-400 hover:text-red-500 text-base leading-none"
-                    title="Delete document"
-                    aria-label="Delete document"
+                    title="Remove from chat"
+                    aria-label="Remove document from chat"
                   >
                     ×
                   </button>
