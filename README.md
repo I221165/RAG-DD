@@ -235,7 +235,7 @@ The spec calls out keeping the implementation "as dynamic and flexible as possib
 Coupling embedding to Chroma's collection config means swapping vector stores requires re-wiring the embedder in a new place. With DI, `EmbeddingProvider` stays the single source of truth — swap stores and the embedder comes along.
 
 **Why MongoDB Atlas for chat history?**
-Persists across restarts without local infra, supports the embedded-message schema cleanly (one document per session, `$push` for new messages), and adds zero cost on the free tier. Trade-off: introduces a cloud dependency at demo time, mitigated by allowlisting `0.0.0.0/0`.
+Persists across restarts without local infra, supports the embedded-message schema cleanly (one document per session, `$push` for new messages), and adds zero cost on the free tier. Trade-off: introduces a cloud dependency at demo time, mitigated by allowlisting `0.0.0.0/0`. At demo scale this is fine; for production, messages would move to a separate collection to avoid MongoDB's 16 MB document limit on very long sessions and to enable efficient per-message queries.
 
 **Why a loader registry instead of switch/if statements?**
 Adding a new file type (`.md`, `.html`, `.csv`, `.pptx`) is one new function + one line in `LOADERS`. No conditionals to update.
@@ -253,9 +253,11 @@ NDJSON is one JSON object per line — trivially parsable on the client without 
 ## Known Limitations
 
 - **No auth or multi-tenancy.** All documents live in one shared collection. Adding per-user isolation would require a `user_id` metadata field on every chunk + auth gating on every route.
-- **No OCR for scanned PDFs.** `PyPDFLoader` only extracts embedded text. Scanned-image PDFs surface as "no extractable text" with a clear 400 error.
-- **Retrieval is pure dense vector.** No BM25, no hybrid search, no reranking. Fine for clean documents; degrades on rare keywords or exact-string queries.
-- **In-prompt history is bounded.** Default `HISTORY_TURNS=6`. Long conversations drop early turns.
+- **No OCR for scanned PDFs.** `pdfplumber` only extracts embedded text. Scanned-image PDFs surface as "no extractable text" with a clear 400 error.
+- **Retrieval is semantic similarity only.** No BM25, no hybrid search, no reranking layer. Fine for clean prose documents; degrades on rare keywords or exact-string queries.
+- **In-prompt history is bounded.** Default `HISTORY_TURNS=6`. Long conversations drop early turns from the LLM context (though the full history is stored in MongoDB).
+- **Chroma persistence is tied to the deployment volume.** On Railway, data survives redeploys only if a persistent volume is mounted at `/app/chroma_db`. Without it, every redeploy wipes embeddings.
+- **MongoDB sessions use an embedded messages array.** Good for demo scale — MongoDB documents support up to 16 MB. For production workloads with very long conversations, messages would move to a separate collection to avoid unbounded document growth and improve query performance.
 
 ---
 
