@@ -229,7 +229,7 @@ The next step up (not implemented in v1) would be a small LLM call to rewrite th
 Persistent and local out of the box, simple Python API, ships with metadata filtering. Pinecone adds a network dependency and account setup for a demo-scale project; FAISS needs more boilerplate for persistence and metadata.
 
 **Why provider ABC + factory pattern?**
-The spec calls out keeping the implementation "as dynamic and flexible as possible." Each of `LLMProvider`, `EmbeddingProvider`, `VectorStore`, `ChatHistoryStore` is an ABC with one concrete implementation today, selected via an env var. Adding e.g. `OpenAIProvider` is one new file + one branch in the factory — no route or pipeline changes.
+Kept as dynamic and flexible as possible. Each of `LLMProvider`, `EmbeddingProvider`, `VectorStore`, `ChatHistoryStore` is an ABC with one concrete implementation today, selected via an env var. Adding e.g. `OpenAIProvider` is one new file + one branch in the factory — no route or pipeline changes.
 
 **Why dependency-inject the embedder into the vector store (vs Chroma's `embedding_function`)?**
 Coupling embedding to Chroma's collection config means swapping vector stores requires re-wiring the embedder in a new place. With DI, `EmbeddingProvider` stays the single source of truth — swap stores and the embedder comes along.
@@ -250,28 +250,6 @@ NDJSON is one JSON object per line — trivially parsable on the client without 
 
 ---
 
-## Known Limitations
-
-- **No auth or multi-tenancy.** All documents live in one shared collection. Adding per-user isolation would require a `user_id` metadata field on every chunk + auth gating on every route.
-- **No OCR for scanned PDFs.** `pdfplumber` only extracts embedded text. Scanned-image PDFs surface as "no extractable text" with a clear 400 error.
-- **Retrieval is semantic similarity only.** No BM25, no hybrid search, no reranking layer. Fine for clean prose documents; degrades on rare keywords or exact-string queries.
-- **In-prompt history is bounded.** Default `HISTORY_TURNS=6`. Long conversations drop early turns from the LLM context (though the full history is stored in MongoDB).
-- **Chroma persistence is tied to the deployment volume.** On Railway, data survives redeploys only if a persistent volume is mounted at `/app/chroma_db`. Without it, every redeploy wipes embeddings.
-- **MongoDB sessions use an embedded messages array.** Good for demo scale — MongoDB documents support up to 16 MB. For production workloads with very long conversations, messages would move to a separate collection to avoid unbounded document growth and improve query performance.
-
----
-
-## Future Improvements
-
-- LLM-based query reformulation for harder follow-ups
-- Re-ranking (cross-encoder) on retrieved chunks
-- Hybrid search (BM25 + vector fusion)
-- Per-document filter in the UI (chat only against selected docs)
-- Authentication + per-user document collections
-- Streaming-aware UI polish (typing indicators, partial-markdown render)
-- Evaluation harness (RAGAS or custom)
-
----
 
 ## License
 
