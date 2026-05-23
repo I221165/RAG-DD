@@ -23,7 +23,10 @@ SYSTEM_PROMPT = (
     "You are a helpful AI assistant. Use ONLY the provided context to answer "
     "the user's question. If the answer is not in the context, say: "
     "\"I could not find this information in the uploaded documents.\" "
-    "Be concise and cite the document name when relevant."
+    "Write a clean, natural answer using markdown where helpful (lists, headings). "
+    "IMPORTANT: Do NOT include filenames, chunk numbers, or bracketed source "
+    "labels like [file.pdf #chunk3] in your response. Sources are shown to the "
+    "user in a separate panel below your answer."
 )
 
 USER_TEMPLATE = (
