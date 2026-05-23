@@ -1,44 +1,92 @@
 import { useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatBox from './components/ChatBox'
-import { listDocuments, clearSession } from './services/api'
+import {
+  clearSession,
+  getHistory,
+  listDocuments,
+  listSessions,
+} from './services/api'
 
 export default function App() {
   const [documents, setDocuments] = useState([])
-  const [sessionId, setSessionId] = useState(null)
+  const [sessions, setSessions] = useState([])
+  const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [streaming, setStreaming] = useState(false)
 
   async function refreshDocuments() {
+    try { setDocuments(await listDocuments()) } catch (e) { console.error(e) }
+  }
+  async function refreshSessions() {
+    try { setSessions(await listSessions()) } catch (e) { console.error(e) }
+  }
+
+  useEffect(() => {
+    refreshDocuments()
+    refreshSessions()
+  }, [])
+
+  function handleNewChat() {
+    if (streaming) return
+    setActiveSessionId(null)
+    setMessages([])
+  }
+
+  async function handleSelectChat(id) {
+    if (streaming || id === activeSessionId) return
     try {
-      setDocuments(await listDocuments())
+      const { messages: msgs } = await getHistory(id)
+      setActiveSessionId(id)
+      setMessages(
+        msgs.map((m) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources || [],
+          streaming: false,
+        })),
+      )
     } catch (e) {
-      console.error('Failed to load documents', e)
+      alert(e.message)
     }
   }
 
-  useEffect(() => { refreshDocuments() }, [])
-
-  async function handleClearChat() {
-    if (sessionId) {
-      try { await clearSession(sessionId) } catch { /* best-effort */ }
+  async function handleDeleteChat(id) {
+    if (streaming) return
+    if (!confirm('Delete this chat?')) return
+    try {
+      await clearSession(id)
+      if (id === activeSessionId) {
+        setActiveSessionId(null)
+        setMessages([])
+      }
+      refreshSessions()
+    } catch (e) {
+      alert(e.message)
     }
-    setSessionId(null)
-    setMessages([])
   }
 
   return (
     <div className="h-screen flex bg-slate-100 text-slate-900">
       <Sidebar
         documents={documents}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        streaming={streaming}
         onUploaded={refreshDocuments}
-        onDeleted={refreshDocuments}
-        onClearChat={handleClearChat}
+        onDeletedDocument={refreshDocuments}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
       />
       <ChatBox
-        sessionId={sessionId}
-        setSessionId={setSessionId}
+        sessionId={activeSessionId}
+        setSessionId={setActiveSessionId}
         messages={messages}
         setMessages={setMessages}
+        streaming={streaming}
+        setStreaming={setStreaming}
+        onTurnComplete={refreshSessions}
       />
     </div>
   )

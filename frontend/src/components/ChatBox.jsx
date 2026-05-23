@@ -2,9 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { sendMessage } from '../services/api'
 import MessageBubble from './MessageBubble'
 
-export default function ChatBox({ sessionId, setSessionId, messages, setMessages }) {
+export default function ChatBox({
+  sessionId,
+  setSessionId,
+  messages,
+  setMessages,
+  streaming,
+  setStreaming,
+  onTurnComplete,
+}) {
   const [input, setInput] = useState('')
-  const [streaming, setStreaming] = useState(false)
   const scrollRef = useRef(null)
 
   useEffect(() => {
@@ -19,7 +26,7 @@ export default function ChatBox({ sessionId, setSessionId, messages, setMessages
     if (!text || streaming) return
     setInput('')
 
-    setMessages(prev => [
+    setMessages((prev) => [
       ...prev,
       { role: 'user', content: text },
       { role: 'assistant', content: '', sources: [], streaming: true },
@@ -27,7 +34,7 @@ export default function ChatBox({ sessionId, setSessionId, messages, setMessages
     setStreaming(true)
 
     const patchLast = (patch) => {
-      setMessages(prev => {
+      setMessages((prev) => {
         const next = [...prev]
         const last = next[next.length - 1]
         next[next.length - 1] = { ...last, ...patch(last) }
@@ -59,6 +66,7 @@ export default function ChatBox({ sessionId, setSessionId, messages, setMessages
       }))
     } finally {
       setStreaming(false)
+      onTurnComplete?.()
     }
   }
 

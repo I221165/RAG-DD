@@ -65,6 +65,14 @@ class ClearSessionResponse(BaseModel):
     session_id: str
 
 
+class SessionSummary(BaseModel):
+    session_id: str
+    title: str
+    message_count: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
 # ===== Streaming protocol =====
 
 class StreamChunk(BaseModel):

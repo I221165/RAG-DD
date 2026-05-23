@@ -21,6 +21,7 @@ from app.models.schemas import (
     ChatRequest,
     ClearSessionResponse,
     HistoryResponse,
+    SessionSummary,
     Source,
 )
 from app.services.chat_history import get_history_store, new_session_id
@@ -82,6 +83,13 @@ async def chat(req: ChatRequest):
             "X-Accel-Buffering": "no",  # disable proxy buffering (nginx, etc.)
         },
     )
+
+
+@router.get("/sessions", response_model=list[SessionSummary])
+async def list_sessions() -> list[SessionSummary]:
+    """Sidebar listing: all sessions, newest-updated first."""
+    rows = await get_history_store().list_sessions()
+    return [SessionSummary(**r) for r in rows]
 
 
 @router.get("/history/{session_id}", response_model=HistoryResponse)

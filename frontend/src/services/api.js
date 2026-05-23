@@ -30,6 +30,12 @@ export async function deleteDocument(documentId) {
   return res.json()
 }
 
+export async function listSessions() {
+  const res = await fetch('/sessions')
+  if (!res.ok) throw new Error(await _failPayload(res))
+  return res.json()
+}
+
 export async function getHistory(sessionId) {
   const res = await fetch(`/history/${sessionId}`)
   if (!res.ok) throw new Error(await _failPayload(res))

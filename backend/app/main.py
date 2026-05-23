@@ -46,6 +46,10 @@ app = FastAPI(
     description="Retrieval-Augmented Generation chatbot backend.",
     version="0.1.0",
     lifespan=lifespan,
+    # Swagger / ReDoc disabled — re-enable by removing these three lines.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(

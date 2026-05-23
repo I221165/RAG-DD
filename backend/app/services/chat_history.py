@@ -34,6 +34,15 @@ class ChatHistoryStore(ABC):
     async def clear(self, session_id: str) -> bool: ...
 
     @abstractmethod
+    async def list_sessions(self) -> list[dict]:
+        """Return one summary per session, newest-updated first.
+
+        Each summary: {session_id, title, message_count, created_at, updated_at}
+        Title is the first user message, truncated.
+        """
+        ...
+
+    @abstractmethod
     async def ping(self) -> bool:
         """Liveness check used by /health."""
         ...
@@ -96,6 +105,45 @@ class MongoChatHistoryStore(ChatHistoryStore):
     async def clear(self, session_id: str) -> bool:
         result = await self._coll.delete_one({"_id": session_id})
         return result.deleted_count > 0
+
+    async def list_sessions(self) -> list[dict]:
+        """One row per session — title is the first user message, truncated."""
+        pipeline = [
+            {
+                "$project": {
+                    "_id": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "message_count": {"$size": {"$ifNull": ["$messages", []]}},
+                    "first_user_msg": {
+                        "$arrayElemAt": [
+                            {
+                                "$filter": {
+                                    "input": {"$ifNull": ["$messages", []]},
+                                    "as": "m",
+                                    "cond": {"$eq": ["$$m.role", "user"]},
+                                }
+                            },
+                            0,
+                        ]
+                    },
+                }
+            },
+            {"$sort": {"updated_at": -1}},
+        ]
+        docs = await self._coll.aggregate(pipeline).to_list(length=None)
+        out: list[dict] = []
+        for d in docs:
+            content = ((d.get("first_user_msg") or {}).get("content") or "").strip()
+            title = content[:60] + ("…" if len(content) > 60 else "") or "New chat"
+            out.append({
+                "session_id": d["_id"],
+                "title": title,
+                "message_count": d.get("message_count", 0),
+                "created_at": d.get("created_at"),
+                "updated_at": d.get("updated_at"),
+            })
+        return out
 
     async def ping(self) -> bool:
         try:

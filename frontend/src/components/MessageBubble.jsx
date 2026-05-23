@@ -8,13 +8,19 @@ export default function MessageBubble({ role, content, sources, streaming }) {
     <div className={'flex ' + (isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={
-          'max-w-2xl rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ' +
+          'max-w-2xl rounded-2xl px-4 py-3 text-sm ' +
           (isUser
-            ? 'bg-blue-600 text-white'
+            ? 'bg-blue-600 text-white whitespace-pre-wrap'
             : 'bg-white text-slate-800 border border-slate-200')
         }
       >
-        {isUser ? displayContent : <Markdown>{displayContent}</Markdown>}
+        {isUser ? (
+          displayContent
+        ) : (
+          <div className="markdown-body">
+            <Markdown>{displayContent}</Markdown>
+          </div>
+        )}
 
         {!isUser && sources && sources.length > 0 && (
           <div className="mt-3 pt-2 border-t border-slate-100">
